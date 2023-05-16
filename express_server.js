@@ -2,19 +2,17 @@ const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
 
-// function generateRandomString() {
-//   let result = "";
-//   const characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-//   const length = characters.length;
-//   let counter = 0;
-//   while (counter < length) {
-//     result += characters.charAt(Math.floor(Math.random() * length));
-//     counter += 1;
-//   }
-//   return result;
-// }
-// generateRandomString(6);
-
+function generateRandomString() {
+  let result = "";
+  const characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const length = 6;
+  let counter = 0;
+  while (counter < length) {
+    result += characters.charAt(Math.floor(Math.random() * length));
+    counter += 1;
+  }
+  return result;
+}
 
 app.use(express.urlencoded({ extended: true }));
 
@@ -65,11 +63,24 @@ app.get("/urls/new", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
-  console.log(req.body); // Log the POST request body to the console
-  res.send("Ok"); // Respond with 'Ok' (we will replace this)
+  let longURL = req.body.longURL;
+  let shortURL = generateRandomString(6);
+  urlDatabase[shortURL] = longURL;
+  res.redirect('urls'); // Respond with 'Ok' (we will replace this)
 });
 
 app.get("/urls/:id", (req, res) => {
   const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id] };
   res.render("urls_show", templateVars);
+});
+
+app.get("/u/:id", (req, res) => {
+  const longURL = urlDatabase[req.params.id];
+  res.redirect(longURL);
+});
+
+app.post("/urls/:id/delete", (req,res) => {
+  const urlID = req.params.id;
+  delete urlDatabase[urlID];
+  res.redirect("/urls");
 });
