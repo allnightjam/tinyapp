@@ -79,8 +79,20 @@ app.get("/u/:id", (req, res) => {
   res.redirect(longURL);
 });
 
-app.post("/urls/:id/delete", (req,res) => {
+app.get("/urls/:id/delete", (req,res) => {
   const urlID = req.params.id;
   delete urlDatabase[urlID];
   res.redirect("/urls");
+});
+
+app.get("/urls/:id/edit", (req,res) => {
+  const urlID = req.params.id;
+  res.redirect(`/urls/${urlID}`);
+});
+
+app.post("/urls/:id/edit", (req,res) => {
+  const urlID = req.params.id;
+  const newURL = req.body.longURL;
+  urlDatabase[urlID] = newURL;
+  res.redirect(`/urls/${urlID}`);
 });
