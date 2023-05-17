@@ -25,6 +25,19 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+const users = {
+  userRandomID: {
+    id: "userRandomID",
+    email: "user@example.com",
+    password: "purple-monkey-dinosaur",
+  },
+  user2RandomID: {
+    id: "user2RandomID",
+    email: "user2@example.com",
+    password: "dishwasher-funk",
+  },
+};
+
 app.get("/", (req, res) => {
   res.send("Hello!");
 });
@@ -52,7 +65,7 @@ app.get("/fetch", (req, res) => {
 
 app.get("/urls", (req, res) => {
   console.log("cookies: ", req.cookies);
-  const templateVars = { urls: urlDatabase, username: req.cookies["username"]};
+  const templateVars = { urls: urlDatabase, user: users[req.cookies["user_id"]]};
   res.render("urls_index", templateVars);
 });
 
@@ -62,12 +75,12 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  const templateVars = { username: req.cookies["username"]};
+  const templateVars = { user: users[req.cookies["user_id"]]};
   res.render("urls_new", templateVars);
 });
 
 app.get("/urls/:id", (req, res) => {
-  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], username: req.cookies["username"] };
+  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], user: users[req.cookies["user_id"]] };
   res.render("urls_show", templateVars);
 });
 
@@ -87,8 +100,15 @@ app.get("/urls/:id/edit", (req,res) => {
   res.redirect(`/urls/${urlID}`);
 });
 
+app.get("/login", (req,res) => {
+  const user = users[req.cookies["user_id"]]
+  const templateVars = { user: false };
+  res.render("login", templateVars);
+});
+
 app.get("/register", (req,res) => {
-  const templateVars = { username: false };
+  const user = users[req.cookies["user_id"]]
+  const templateVars = { user: false };
   res.render("register", templateVars);
 });
 
@@ -106,25 +126,47 @@ app.post("/urls/:id/edit", (req,res) => {
   res.redirect(`/urls/${urlID}`);
 });
 
+
 app.post("/login", (req,res) => {
-  const username = req.body.username;
-  res.cookie('username', username);
-  res.redirect("/urls");
+  for (let i in users) {
+    if (users[i].email === req.body.email) { 
+      if (users[i].password === req.body.password) {
+        res.cookie('user_id', users[i].id);
+        return res.redirect('/urls');
+      }
+      return res.status(403).send("Email And/Or Password Invalid");
+    }
+  }
+  return res.status(403).send("Email And/Or Password Invalid");
 });
 
 app.post("/logout", (req,res) => {
-  const username = req.body.username;
-  res.clearCookie('username', username);
-  res.redirect("/urls");
+  const user = users[req.cookies["user_id"]]
+  res.clearCookie('user_id', user);
+  res.redirect("/login");
 });
 
-// app.post("/register", (req,res) => {
-//   const email = req.body.email;
-//   const password = req.body.password;
-
-// });
-
-
+app.post("/register", (req,res) => {
+  const newUser = {
+    id: generateRandomString(6),
+    email: req.body.email,
+    password: req.body.password,
+  };
+  if (req.body.email === "" || req.body.password === ""){
+    return res.status(400).send("Email And/Or Password Invalid");
+  }
+  for (let i in users) {
+    if (users[i].email === newUser.email){
+      return res.status(400).send("Email Taken");
+    }
+  }
+  users[newUser.id] = newUser;
+  res.cookie("user_id", newUser.id);
+  console.log(newUser.id);
+  res.redirect("/urls");
+});
+  
+  
 
 // LECTURE EXAMPLE
 // app.post("/login", (req,res) => {
@@ -139,3 +181,16 @@ app.post("/logout", (req,res) => {
 //   }
 //   return res.send('cannot login, wrong email/pass');
 // })
+
+// OLD 
+// app.post("/login", (req,res) => {
+//   const username = req.body.username;
+//   res.cookie('username', username);
+//   res.redirect("/urls");
+// });
+
+// app.post("/logout", (req,res) => {
+//   const username = req.body.username;
+//   res.clearCookie('username', username);
+//   res.redirect("/urls");
+// });
