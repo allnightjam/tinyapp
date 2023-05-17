@@ -87,6 +87,11 @@ app.get("/urls/:id/edit", (req,res) => {
   res.redirect(`/urls/${urlID}`);
 });
 
+app.get("/register", (req,res) => {
+  const templateVars = { username: false };
+  res.render("register", templateVars);
+});
+
 app.post("/urls", (req, res) => {
   let longURL = req.body.longURL;
   let shortURL = generateRandomString(6);
@@ -112,3 +117,25 @@ app.post("/logout", (req,res) => {
   res.clearCookie('username', username);
   res.redirect("/urls");
 });
+
+// app.post("/register", (req,res) => {
+//   const email = req.body.email;
+//   const password = req.body.password;
+
+// });
+
+
+
+// LECTURE EXAMPLE
+// app.post("/login", (req,res) => {
+//   for (let i in users) {
+//     if (users[i].email === req.body.email) {
+//       if (users[i].password === req.body.pass) {
+//         res.cookie('user_id', users[i].id);
+//         return res.redirect('/');
+//       }
+//       return res.send('cannot login, wrong email/pass');
+//     }
+//   }
+//   return res.send('cannot login, wrong email/pass');
+// })
