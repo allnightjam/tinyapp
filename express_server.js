@@ -1,13 +1,17 @@
 const express = require("express");
 const app = express();
-const PORT = 8080; // default port 8080
+const PORT = 8080; 
 const cookieParser = require("cookie-parser");
-
 const bcrypt = require("bcryptjs");
-// const password = "purple-monkey-dinosaur"; // found in the req.body object
-// const hashedPassword = bcrypt.hashSync(password, 10);
+const cookieSession = require("cookie-session");
+const { getUserByEmail } = require('../helpers.js');
 
 
+app.use(cookieSession( {
+  name: 'session',
+  secret: 'user_id',
+  maxAge: 24 * 60 * 60 * 1000
+}))
 
 function urlsForUser(user) {
   let userURLS = {};
@@ -86,15 +90,13 @@ app.get("/fetch", (req, res) => {
  });
 
 app.get("/urls", (req, res) => {
-  // console.log(req.cookies["user_id"])
-  // console.log(users);
-  const user = users[req.cookies["user_id"]];
+  // req.session.user_id = req.cookies["user_id"];
+  const user = users[req.session.user_id];
   if (!user) {
     return res.status(403).send("Please Log In Or Register");
   }
   const urls = urlsForUser(user);
-  // console.log("cookies: ", req.cookies);
-  let templateVars = { urls: urls, user: users[req.cookies["user_id"]]};
+  let templateVars = { urls: urls, user: users[req.session.user_id]};
   res.render("urls_index", templateVars);
 });
 
@@ -104,16 +106,16 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  const user = users[req.cookies["user_id"]];
+  const user = users[req.session.user_id];
   if  (!user) {
     res.redirect("/login");
   }
-  const templateVars = { user: users[req.cookies["user_id"]]};
+  const templateVars = { user: users[req.session.user_id]};
   res.render("urls_new", templateVars);
 });
 
 app.get("/urls/:id", (req, res) => {
-  const user = users[req.cookies["user_id"]];
+  const user = users[req.session.user_id];
   if (!user) {
     return res.status(403).send("Please Log In Or Register");
   }
@@ -122,7 +124,7 @@ app.get("/urls/:id", (req, res) => {
   if (!url) {
     return res.status(403).send("URL Not Found");
   }
-  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id].longURL, user: users[req.cookies["user_id"]] };
+  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id].longURL, user: users[req.session.user_id] };
   res.render("urls_show", templateVars);
 });
 
@@ -136,7 +138,7 @@ app.get("/u/:id", (req, res) => {
 });
 
 app.get("/urls/:id/delete", (req,res) => {
-  const user = users[req.cookies["user_id"]];
+  const user = users[req.session.user_id];
   if (!user) {
     return res.status(403).send("You do not have permission");
   }
@@ -146,7 +148,7 @@ app.get("/urls/:id/delete", (req,res) => {
 });
 
 app.get("/urls/:id/edit", (req,res) => {
-  const user = users[req.cookies["user_id"]];
+  const user = users[req.session.user_id];
   if (!user) {
     return res.status(403).send("You do not have permission");
   }
@@ -155,33 +157,35 @@ app.get("/urls/:id/edit", (req,res) => {
 });
 
 app.get("/login", (req,res) => {
-  const user = users[req.cookies["user_id"]]
+  const user = users[req.session.user_id]
   const templateVars = { user: false };
   res.render("login", templateVars);
   // res.redirect("/urls");
 });
 
 app.get("/register", (req,res) => {
-  const user = users[req.cookies["user_id"]]
+  const user = users[req.session.user_id]
   const templateVars = { user: false };
   res.render("register", templateVars);
   res.redirect("/urls");
 });
 
 app.post("/urls", (req, res) => {
-  const user = users[req.cookies["user_id"]];
+  req.session.user_id = req.cookies["user_id"];
+  const user = users[req.session.user_id];
   if (!user) {
     return res.send("Only Logged In Members Can Shorten URLS");
   }
   let longURL = req.body.longURL;
-  let userID = req.cookies.user_id;
+  let userID = req.session.user_id;
   const shortURL = generateRandomString(6);
   urlDatabase[shortURL] = { longURL, userID };
   res.redirect(`/urls/${shortURL}`); // Respond with 'Ok' (we will replace this)
 });
 
 app.post("/urls/:id/edit", (req,res) => {
-  const user = users[req.cookies["user_id"]];
+  req.session.user_id = req.cookies["user_id"];
+  const user = users[req.session.user_id];
   if (!user) {
     return res.status(403).send("You do not have permission");
   }
@@ -197,10 +201,9 @@ app.post("/login", (req,res) => {
     if (users[i].email === req.body.email) { 
       const passwordMatch = bcrypt.compareSync(req.body.password, users[i].password); 
       if (passwordMatch) {
-        res.cookie('user_id', users[i].id);
+        req.session.user_id = users[i].id;
         return res.redirect('/urls');
       }
-      // if (users[i].password === passwordMatch) {
       return res.status(403).send("Email And/Or Password Invalid");
     }
   }
@@ -208,8 +211,11 @@ app.post("/login", (req,res) => {
 });
 
 app.post("/logout", (req,res) => {
-  const user = users[req.cookies["user_id"]]
-  res.clearCookie('user_id', user);
+  // req.session.user_id = req.cookies["user_id"];
+  if (req.session.user_id) {
+    // const user = users[req.session.user_id]
+    req.session = null;
+  };
   res.redirect("/login");
 });
 
@@ -229,13 +235,12 @@ app.post("/register", (req,res) => {
     }
   }
   users[newUser.id] = newUser;
-  res.cookie("user_id", newUser.id);
-  console.log(newUser.id);
+  req.session.user_id = newUser.id;
   res.redirect("/urls");
 });
 
 app.post("/urls/:id/delete", (req,res) => {
-  const user = users[req.cookies["user_id"]];
+  const user = users[req.session.user_id];
   if (!user) {
     return res.status(403).send("You do not have permission");
   };
@@ -243,32 +248,4 @@ app.post("/urls/:id/delete", (req,res) => {
   delete urlDatabase[urlID];
   res.redirect("/urls");
 });
-// "If both checks pass, set the user_id cookie with the matching user's random ID, then redirect to /urls." is done like this right?
-// res.cookie('user_id', users[i].id)  
 
-// LECTURE EXAMPLE
-// app.post("/login", (req,res) => {
-//   for (let i in users) {
-//     if (users[i].email === req.body.email) {
-//       if (users[i].password === req.body.pass) {
-//         res.cookie('user_id', users[i].id);
-//         return res.redirect('/');
-//       }
-//       return res.send('cannot login, wrong email/pass');
-//     }
-//   }
-//   return res.send('cannot login, wrong email/pass');
-// })
-
-// OLD 
-// app.post("/login", (req,res) => {
-//   const username = req.body.username;
-//   res.cookie('username', username);
-//   res.redirect("/urls");
-// });
-
-// app.post("/logout", (req,res) => {
-//   const username = req.body.username;
-//   res.clearCookie('username', username);
-//   res.redirect("/urls");
-// });
