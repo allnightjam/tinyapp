@@ -1,17 +1,16 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; 
-const cookieParser = require("cookie-parser");
 const bcrypt = require("bcryptjs");
 const cookieSession = require("cookie-session");
-const { getUserByEmail } = require('../helpers.js');
-
-
+const { getUserByEmail } = require('./helpers.js');
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieSession( {
-  name: 'session',
-  secret: 'user_id',
-  maxAge: 24 * 60 * 60 * 1000
+  name: "session",
+  keys: ["user_id"],
 }))
+
+
 
 function urlsForUser(user) {
   let userURLS = {};
@@ -34,9 +33,6 @@ function generateRandomString() {
   }
   return result;
 }
-
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
 
 app.set("view engine", "ejs");
 
@@ -90,8 +86,7 @@ app.get("/fetch", (req, res) => {
  });
 
 app.get("/urls", (req, res) => {
-  // req.session.user_id = req.cookies["user_id"];
-  const user = users[req.session.user_id];
+  const user = users[req.session.user_id]
   if (!user) {
     return res.status(403).send("Please Log In Or Register");
   }
@@ -118,11 +113,14 @@ app.get("/urls/:id", (req, res) => {
   const user = users[req.session.user_id];
   if (!user) {
     return res.status(403).send("Please Log In Or Register");
-  }
+  } 
   const shortURL = req.params.id;
   const url = urlDatabase[shortURL];
-  if (!url) {
+   if (!url) {
     return res.status(403).send("URL Not Found");
+  }
+  if (url.userID !== user.id) {
+    return res.status(403).send("Permission Denied");
   }
   const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id].longURL, user: users[req.session.user_id] };
   res.render("urls_show", templateVars);
@@ -160,18 +158,15 @@ app.get("/login", (req,res) => {
   const user = users[req.session.user_id]
   const templateVars = { user: false };
   res.render("login", templateVars);
-  // res.redirect("/urls");
 });
 
 app.get("/register", (req,res) => {
   const user = users[req.session.user_id]
   const templateVars = { user: false };
   res.render("register", templateVars);
-  res.redirect("/urls");
 });
 
 app.post("/urls", (req, res) => {
-  req.session.user_id = req.cookies["user_id"];
   const user = users[req.session.user_id];
   if (!user) {
     return res.send("Only Logged In Members Can Shorten URLS");
@@ -180,11 +175,10 @@ app.post("/urls", (req, res) => {
   let userID = req.session.user_id;
   const shortURL = generateRandomString(6);
   urlDatabase[shortURL] = { longURL, userID };
-  res.redirect(`/urls/${shortURL}`); // Respond with 'Ok' (we will replace this)
+  res.redirect(`/urls/${shortURL}`); 
 });
 
 app.post("/urls/:id/edit", (req,res) => {
-  req.session.user_id = req.cookies["user_id"];
   const user = users[req.session.user_id];
   if (!user) {
     return res.status(403).send("You do not have permission");
@@ -197,45 +191,39 @@ app.post("/urls/:id/edit", (req,res) => {
 
 
 app.post("/login", (req,res) => {
-  for (let i in users) {
-    if (users[i].email === req.body.email) { 
-      const passwordMatch = bcrypt.compareSync(req.body.password, users[i].password); 
-      if (passwordMatch) {
-        req.session.user_id = users[i].id;
-        return res.redirect('/urls');
-      }
-      return res.status(403).send("Email And/Or Password Invalid");
-    }
+  const user = getUserByEmail(req.body.email, users);
+  if (!user) {
+    return res.status(403).send("Email And/Or Password Invalid");
+  }
+  const passwordMatch = bcrypt.compareSync(req.body.password, user.password); 
+  if (passwordMatch) {
+    req.session.user_id = user.id;
+    return res.redirect('/urls');
   }
   return res.status(403).send("Email And/Or Password Invalid");
 });
 
 app.post("/logout", (req,res) => {
-  // req.session.user_id = req.cookies["user_id"];
-  if (req.session.user_id) {
-    // const user = users[req.session.user_id]
-    req.session = null;
-  };
+  req.session = null;
   res.redirect("/login");
 });
 
 app.post("/register", (req,res) => {
+  const user = getUserByEmail(req.body.email,users);
   const hashedPassword = bcrypt.hashSync(req.body.password, 10);
   const newUser = {
     id: generateRandomString(6),
     email: req.body.email,
     password: hashedPassword,
   };
-  if (req.body.email === "" || req.body.password === ""){
+  if (req.body.email === "" || req.body.password === "") {
     return res.status(400).send("Email And/Or Password Invalid");
   }
-  for (let i in users) {
-    if (users[i].email === newUser.email){
-      return res.status(400).send("Email Taken");
-    }
+  if (user && user.email === newUser.email) {
+    return res.status(400).send("Email Taken");
   }
   users[newUser.id] = newUser;
-  req.session.user_id = newUser.id;
+  req.session.user_id = newUser.id
   res.redirect("/urls");
 });
 
@@ -248,4 +236,3 @@ app.post("/urls/:id/delete", (req,res) => {
   delete urlDatabase[urlID];
   res.redirect("/urls");
 });
-
