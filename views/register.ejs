@@ -19,35 +19,14 @@
   <body>
     <%- include('partials/_header') %>
     <main style="margin: 1em;">
-      <h3>My URLs</h3>
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">Short URL ID</th>
-            <th scope="col">Long URL</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% for (let id in urls) { %>
-            <tr>
-              <td><%= id %></td>
-              <td><%= urls[id].longURL %></td>
-              <td>
-                <!-- <form method="POST" action="/urls/<%= id %>/delete">
-                  <input type="submit" value="Delete">
-                </form>  -->
-                <a href="/urls/<%= id %>/delete">Delete</a>
-                </td>
-                <td>
-                  <!-- <form method="GET" action="/urls/<%= id %>/edit">
-                  <input type="submit" value="Edit">
-                </form>  -->
-                <a href="/urls/<%= id %>/edit">Edit</a>
-              </td>
-            </tr>
-          <% } %>
-        </tbody>
-      </table>
+      <h3>Register</h3>
+        <form method="POST" action="/register">
+          <input type="email" name="email">
+          <label>Email</button>
+          <input type="password" name="password">
+          <label>Password</button>
+          <button type="submit"> Register </button>
+        </form>
     </main>
     <!-- Bootstrap JS -->
     <script
